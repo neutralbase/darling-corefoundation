@@ -1000,7 +1000,17 @@ CFDataRef CFURLCreateBookmarkData(CFAllocatorRef allocator, CFURLRef url, CFURLB
 
 Boolean CFURLResourceIsReachable(CFURLRef url, CFErrorRef *error)
 {
-#warning TODO: FIXME
+    struct stat info;
+
+    if (url == NULL) {
+        return false;
+    }
+
+    if (CFURLStat(url, &info)) {
+        return true;
+    }
+
+    posixError(error);
     return false;
 }
 
