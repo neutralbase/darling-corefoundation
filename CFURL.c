@@ -4962,7 +4962,26 @@ CFURLRef CFURLCreateFilePathURL(CFAllocatorRef alloc, CFURLRef url, CFErrorRef *
 #endif
 
 
-CFURLRef CFURLCreateFileReferenceURL(CFAllocatorRef alloc, CFURLRef url, CFErrorRef *error) { return NULL; }
+CFURLRef CFURLCreateFileReferenceURL(CFAllocatorRef alloc, CFURLRef url, CFErrorRef *error)
+{
+    // Darling has no volfs (/.file/id=<dev>.<inode>) backing store, so a
+    // genuine file-reference URL cannot be minted. On macOS this returns
+    // non-NULL for any reachable file URL, and callers immediately convert
+    // the result back to a file-path URL via CFURLCreateFilePathURL and
+    // CFRelease it (this is exactly what Rust's std::fs::canonicalize does
+    // through the core-foundation crate). Returning NULL violates that
+    // contract: the caller CFRelease()s the NULL out-slot, which trips
+    // CoreFoundation's `if (NULL == cf) HALT` (brk #0xf000) and silently
+    // kills the process. A file-reference URL and a file-path URL are
+    // interchangeable handles for the same file, so hand back a file-path
+    // URL: it round-trips through CFURLCreateFilePathURL and is
+    // retain/release-safe. CFURLCreateFilePathURL already returns NULL +
+    // sets *error for non-file URLs, preserving the macOS failure contract.
+    if (!url) {
+        return NULL;
+    }
+    return CFURLCreateFilePathURL(alloc, url, error);
+}
 
 #include <CoreServices/FileManager.h>
 #include <sys/stat.h>
